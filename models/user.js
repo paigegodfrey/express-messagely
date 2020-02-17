@@ -1,4 +1,6 @@
 /** User class for message.ly */
+const db = require("../db");
+const ExpressError = require("../expressError");
 const bcrypt = require('bcrypt');
 const { BCRYPT_WORK_FACTOR } = require('../config');
 
@@ -14,8 +16,9 @@ class User {
     const hashedPassword = await bcrypt.hash(
       password, BCRYPT_WORK_FACTOR);
     const result = await db.query(
-      `INSERT INTO users (username, hashedPassword, first_name, last_name, phone)
-          VALUES ($1, $2, $3, $4, $5)`,
+      `INSERT INTO users (username, password, first_name, last_name, phone, join_at, last_login_at)
+          VALUES ($1, $2, $3, $4, $5, current_timestamp, current_timestamp)
+          RETURNING username, password, first_name, last_name, phone`,
       [username, hashedPassword, first_name, last_name, phone]);
     return result.rows[0];
   };
@@ -53,11 +56,11 @@ class User {
   }
 
   /** All: basic info on all users:
-   * [{username, first_name, last_name, phone}, ...] */
+   * [{username, first_name, last_name}, ...] */
 
   static async all() {
     const result = await db.query(
-      `SELECT username, first_name, last_name, phone, join_at, last_login_at 
+      `SELECT username, first_name, last_name
         FROM users`
     );
     return result.rows;
@@ -77,7 +80,11 @@ class User {
       `SELECT username, first_name, last_name, phone, join_at, last_login_at 
         FROM users WHERE username = $1`, [username]
     );
-    return result.rows[0];
+    const user = result.rows[0];
+    if (!user) {
+      throw new ExpressError(`User does not exist: ${username}`, 404);
+    }
+    return user;
   }
 
   /** Return messages from this user.
@@ -89,6 +96,10 @@ class User {
    */
 
   static async messagesFrom(username) {
+
+    // try to get user and throw error if user doesn't exist
+    await User.get(username);
+
     const messageResult = await db.query(
       `SELECT id, to_username as to_user, body, sent_at, read_at 
         FROM messages WHERE from_username = $1`, [username]
@@ -106,6 +117,7 @@ class User {
       messages[idx] = message;
       idx++;
     }
+
     return messages;
   }
 
@@ -114,10 +126,32 @@ class User {
    * [{id, from_user, body, sent_at, read_at}]
    *
    * where from_user is
-   *   {id, first_name, last_name, phone}
+   *   {username, first_name, last_name, phone}
    */
 
-  static async messagesTo(username) { }
+  static async messagesTo(username) {
+    // try to get user and throw error if user doesn't exist
+    await User.get(username);
+
+    const messageResult = await db.query(
+      `SELECT id, from_username as from_user, body, sent_at, read_at 
+        FROM messages WHERE to_username = $1`, [username]
+    );
+    const messages = messageResult.rows;
+    let idx = 0;
+    for (let message of messages) {
+      let fromUser = message.from_user;
+      let fromUserResult = await db.query(
+        `SELECT username, first_name, last_name, phone 
+          FROM users WHERE username = $1`, [fromUser]
+      );
+      fromUser = fromUserResult.rows[0];
+      message.from_user = fromUser;
+      messages[idx] = message;
+      idx++;
+    }
+    return messages;
+  }
 }
 
 
