@@ -13,11 +13,11 @@ class User {
   static async register({ username, password, first_name, last_name, phone }) {
     const hashedPassword = await bcrypt.hash(
       password, BCRYPT_WORK_FACTOR);
-    await db.query(
+    const result = await db.query(
       `INSERT INTO users (username, hashedPassword, first_name, last_name, phone)
-              VALUES ($1, $2, $3, $4, $5)`,
+          VALUES ($1, $2, $3, $4, $5)`,
       [username, hashedPassword, first_name, last_name, phone]);
-    return { username, hashedPassword, first_name, last_name, phone };
+    return result.rows[0];
   };
 
   /** Authenticate: is this username/password valid? Returns boolean. */
@@ -38,7 +38,7 @@ class User {
 
   /** Update last_login_at for user */
 
-  static async updateLoginTimestamp(username) { 
+  static async updateLoginTimestamp(username) {
     const result = await db.query(
       `UPDATE users SET last_login_at=current_timestamp WHERE username = $1
         RETURNING username, last_login_at`,
@@ -55,7 +55,7 @@ class User {
   /** All: basic info on all users:
    * [{username, first_name, last_name, phone}, ...] */
 
-  static async all() { 
+  static async all() {
     const result = await db.query(
       `SELECT username, first_name, last_name, phone, join_at, last_login_at 
         FROM users`
@@ -78,7 +78,7 @@ class User {
         FROM users WHERE username = $1`, [username]
     );
     return result.rows[0];
-   }
+  }
 
   /** Return messages from this user.
    *
@@ -95,7 +95,7 @@ class User {
     );
     const messages = messageResult.rows;
     let idx = 0;
-    for(let message of messages) {
+    for (let message of messages) {
       let toUser = message.to_user;
       let toUserResult = await db.query(
         `SELECT username, first_name, last_name, phone 
@@ -107,7 +107,7 @@ class User {
       idx++;
     }
     return messages;
-   }
+  }
 
   /** Return messages to this user.
    *
