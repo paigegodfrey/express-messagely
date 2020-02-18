@@ -15,13 +15,13 @@ class User {
   static async register({ username, password, first_name, last_name, phone }) {
     const hashedPassword = await bcrypt.hash(
       password, BCRYPT_WORK_FACTOR);
-    try {  
-    const result = await db.query(
-      `INSERT INTO users (username, password, first_name, last_name, phone, join_at, last_login_at)
+    try {
+      const result = await db.query(
+        `INSERT INTO users (username, password, first_name, last_name, phone, join_at, last_login_at)
           VALUES ($1, $2, $3, $4, $5, current_timestamp, current_timestamp)
           RETURNING username, password, first_name, last_name, phone`,
-      [username, hashedPassword, first_name, last_name, phone]);
-    return result.rows[0];
+        [username, hashedPassword, first_name, last_name, phone]);
+      return result.rows[0];
     }
     catch (err) {
       return false;
@@ -115,14 +115,21 @@ class User {
     let idx = 0;
 
     for (let message of messages) {
-      let toUser = message.to_user;
+      let { id, to_user, body, sent_at, read_at } = message;
       let toUserResult = await db.query(
         `SELECT username, first_name, last_name, phone 
-          FROM users WHERE username = $1`, [toUser]
+          FROM users WHERE username = $1`, [to_user]
       );
 
-      toUser = toUserResult.rows[0];
-      message.to_user = toUser;
+      to_user = toUserResult.rows[0];
+      message = {
+        id,
+        to_user,
+        body,
+        sent_at,
+        read_at
+      };
+
       messages[idx] = message;
       idx++;
     }
@@ -152,14 +159,21 @@ class User {
     let idx = 0;
 
     for (let message of messages) {
-      let fromUser = message.from_user;
+      let { id, from_user, body, sent_at, read_at } = message;
       let fromUserResult = await db.query(
         `SELECT username, first_name, last_name, phone 
-          FROM users WHERE username = $1`, [fromUser]
+          FROM users WHERE username = $1`, [from_user]
       );
 
-      fromUser = fromUserResult.rows[0];
-      message.from_user = fromUser;
+      from_user = fromUserResult.rows[0];
+      message = {
+        id,
+        from_user,
+        body,
+        sent_at,
+        read_at
+      };
+
       messages[idx] = message;
       idx++;
     }
