@@ -31,7 +31,7 @@ router.get(
     let username = req.params.username;
     let user = await User.get(username);
 
-    return res.json(user);
+    return res.json({ user });
   });
 
 

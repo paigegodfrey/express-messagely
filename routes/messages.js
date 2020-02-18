@@ -36,7 +36,7 @@ router.get('/:id', ensureLoggedIn, async (req, res, next) => {
       throw new ExpressError("Not authorized", 401);
     }
 
-    return res.json(message=message);
+    return res.json({ message });
   }
 
   catch(err) {
@@ -52,14 +52,22 @@ router.get('/:id', ensureLoggedIn, async (req, res, next) => {
  **/
 
 router.post('/', ensureLoggedIn, async (req, res, next) => {
-  let fromUser = req.user.username;
-  console.log(fromUser);
-  let toUser = req.body.to_username;
-  let msgBody = req.body.body;
+  try {
+    let fromUser = req.user.username;
+    let toUser = req.body.to_username;
+    let msgBody = req.body.body;
+    
+    if (!toUser || !msgBody){
+      throw new ExpressError("Invalid Post", 400);
+    }
+    
+    let message = await Message.create({ from_username: fromUser, to_username: toUser, body: msgBody });
+    return res.json({ message });
+  }
 
-  let message = await Message.create({ from_username: fromUser, to_username: toUser, body: msgBody });
-  console.log(message);
-  return res.json(message=message);
+  catch(err) {
+    next(err);
+  }
 });
 
 /** POST/:id/read - mark message as read:
@@ -85,7 +93,7 @@ router.post('/:id/read', ensureLoggedIn, async (req, res, next) => {
     }
 
     let messageRead = await Message.markRead(messageId);
-    return res.json(message=messageRead);
+    return res.json({message: messageRead});
   }
 
   catch(err) {
